@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Why Premom was fined $100,000: analytics events that disclosed health data, as alleged</title>
+<meta name="description" content="Premom's maker agreed to a $100,000 civil penalty after the FTC alleged that event names the fertility app sent to Google and AppsFlyer revealed users' health." />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="WolfBoy blog" />
+<meta property="og:title" content="Why Premom was fined $100,000: analytics events that disclosed health data, as alleged" />
+<meta property="og:description" content="Premom's maker agreed to a $100,000 civil penalty after the FTC alleged that event names the fertility app sent to Google and AppsFlyer revealed users' health." />
+<meta property="og:url" content="https://innit-llc.github.io/blog/health-event-names-to-analytics-sdks-us/" />
+<meta property="og:image" content="https://innit-llc.github.io/blog/og/health-event-names-to-analytics-sdks-us.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Why Premom was fined $100,000: analytics events that disclosed health data, as alleged" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="color-scheme" content="light dark" />
+<link rel="preload" href="../fonts/SchibstedGrotesk-normal-400-900-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body class="post">
+<header class="mast"><div class="wrap"><a class="brand" href="../"><b>WolfBoy</b> blog</a></div></header>
+<main class="wrap">
+<article>
+<header>
+<h1>Why Premom was fined $100,000: analytics events that disclosed health data, as alleged</h1>
+<p class="meta"><time datetime="2026-11-17">17 November 2026</time></p>
+</header>
+<p>An analytics event with a name like 'log_period' can share health data, according to a complaint brought for the US Federal Trade Commission, which alleges that event titles such as "Log period-save" were "descriptive titles that convey health information" (¶28). The complaint says Premom, a US fertility-tracking app, sent such events to Google and AppsFlyer with advertising or device identifiers, while its privacy policy promised never to share health data without consent or knowledge. Its maker, Easy Healthcare Corporation, agreed to a $100,000 civil penalty without admitting or denying the allegations.</p>
+<section class="case">
+<h2 id="the-decision">The decision</h2>
+<ul>
+<li><span class="k">Who:</span> a settlement in US federal court (N.D. Ill., No. 1:23-cv-3107). The Department of Justice sued for the FTC. The company, Easy Healthcare Corporation, maker of the fertility and ovulation-tracking app Premom, "neither admits nor denies any of the allegations in the Complaint" (order, ¶3), so everything below about the software is an allegation.</li>
+<li><span class="k">When:</span> complaint filed 17 May 2023; stipulated order filed 22 June 2023.</li>
+<li><span class="k">Amount:</span> a $100,000 civil penalty. The company also agreed to pay a total of $100,000 to Connecticut, the District of Columbia and Oregon, which worked with the FTC on the case [4].</li>
+<li><span class="k">Status as of November 2026:</span> not under appeal. Both sides "waive all rights to appeal or otherwise challenge or contest the validity of this Order" (order, ¶5). The FTC's case page still shows the status "Pending".</li>
+<li><span class="k">Text:</span> complaint [1] and order [2], linked from the FTC's case page [3].</li>
+</ul>
+</section>
+<h2 id="what-the-complaint-says-the-software-did">What the complaint says the software did</h2>
+<p>The privacy policy dated 7 July 2020 said, "in a paragraph set off from other paragraphs" (complaint ¶19, p. 6):</p>
+<blockquote>
+<p>"WE PROMISE WE WILL NEVER SHARE YOUR EXACT AGE OR ANY DATA RELATED TO YOUR HEALTH WITH ANY THIRD PARTIES WITHOUT YOUR CONSENT OR KNOWLEDGE."</p>
+</blockquote>
+<p>According to the complaint, the app:</p>
+<ul>
+<li>built in SDKs from Google and AppsFlyer and "disclosed health information to them through 'Custom App Events'" (¶26, p. 8), "records of user-app interactions unique to [the app]" (¶27, p. 8);</li>
+<li>gave those events "descriptive titles that convey health information" (¶28, p. 8), for example "when a user logs and saves information related to her period, Defendant records the Custom App Event as 'Log period-save.'" Other titles included "Calendar/Report/LogFertility" and "Signup/Birth" (¶28, pp. 8–9);</li>
+<li>sent identifiers with them: "Through these SDKs, Defendant has also collected and shared [the app's] users' unique advertising or device identifiers", which "could allow these third parties to associate these fertility and pregnancy Custom App Events to a specific individual" (¶29, p. 9);</li>
+<li>sent the titles "in plain text" (¶90, p. 28).</li>
+</ul>
+<h2 id="what-this-looks-like-in-code">What this looks like in code</h2>
+<p>The complaint does not say which Google SDK the app used. The reproduction uses Firebase Analytics beside AppsFlyer's Android SDK. Read it against the promise above.</p>
+<p>This is not Premom's code. The complaint does not publish any code; this reproduces the behaviour it describes.</p>
+<pre><code class="language-kotlin">import android.content.Context
+import com.appsflyer.AppsFlyerLib
+import com.google.firebase.analytics.FirebaseAnalytics
+
+// AppsFlyer sends data only after init(devKey, ...) and start(...) have run in
+// Application.onCreate. That setup is not shown here.
+class PeriodLogger(
+    private val context: Context,
+    private val repository: CycleRepository,
+) {
+    private val firebase = FirebaseAnalytics.getInstance(context)
+    private val appsFlyer = AppsFlyerLib.getInstance()
+
+    fun onPeriodSaved(entry: PeriodEntry) {
+        repository.save(entry) // dates and symptoms go to our own backend
+
+        // product analytics: which features get used
+        firebase.logEvent("log_period_save", null)
+        appsFlyer.logEvent(context, "Log period-save", emptyMap())
+    }
+
+    fun onFertilityLogged(entry: FertilityEntry) {
+        repository.save(entry)
+        firebase.logEvent("calendar_report_log_fertility", null)
+        appsFlyer.logEvent(context, "Calendar/Report/LogFertility", emptyMap())
+    }
+}
+</code></pre>
+<p>Neither call passes a parameter. Google and AppsFlyer receive the event's name, with the identifiers each SDK attaches on its own, and the complaint's point is that a name like "Log period-save" says what this user just did.</p>
+<p>The complaint says such transfers "directly contradict" the privacy policy (¶30, p. 9). That promise sits in a policy page, outside the code base, and no review of <code>PeriodLogger</code> puts the two side by side.</p>
+<h2 id="why-it-was-a-violation-according-to-the-complaint">Why it was a violation, according to the complaint</h2>
+<p>The court did not rule on the merits. The complaint's reasoning:</p>
+<ul>
+<li>Deception under FTC Act §5(a), 15 U.S.C. §45(a) (Count I, ¶¶67–69, p. 22). The policies said health information would not reach third parties without knowledge or consent. "In truth and fact," the company "did disclose consumers' health information to AppsFlyer and Google."</li>
+<li>Unfairness under §5(a) (Count VII, ¶86, p. 26). The company "failed to encrypt or label" the events "to prevent the transfer of users' personal health information to Google and AppsFlyer", so it went out "without users' knowledge" or their "affirmative express consent".</li>
+<li>The Health Breach Notification Rule, 16 C.F.R. Part 318 (Count VIII, ¶¶89–93, pp. 27–28). As a "vendor of personal health records", the company experienced "breaches of security" when the event titles reached Google and AppsFlyer "without the authorization of [the app's] users", and it sent none of the notices the Rule requires (¶91). Under §318.7 a violation of the Rule counts as a violation of §5(a) (¶92). The FTC's press release ties the $100,000 civil penalty to this Rule [4].</li>
+</ul>
+<h2 id="the-fix">The fix</h2>
+<p>Send third-party SDKs only events whose names and parameters say nothing about the user's health. Then write the privacy policy so that it names every event your code sends them, and the events their SDKs log without being asked. One gateway with a fixed list, and a test that fails unless the policy names exactly the events on that list, keeps code and policy in step:</p>
+<pre><code class="language-kotlin">// Analytics.kt: the only place that calls third-party SDKs.
+object Analytics {
+    val THIRD_PARTY_EVENTS = setOf("trial_started", "subscription_purchased")
+
+    fun track(context: Context, event: String) {
+        // BuildConfig needs buildFeatures { buildConfig = true } (AGP 8+)
+        if (event !in THIRD_PARTY_EVENTS) {
+            check(!BuildConfig.DEBUG) { "'$event' is not cleared for third-party SDKs" }
+            return // dropped in release builds, never sent
+        }
+        FirebaseAnalytics.getInstance(context).logEvent(event, null)
+        AppsFlyerLib.getInstance().logEvent(context, event, emptyMap())
+    }
+}
+
+// PeriodLogger.kt
+fun onPeriodSaved(entry: PeriodEntry) {
+    repository.save(entry)
+    // No third-party event for anything the user logs about their body.
+}
+
+// PrivacyPolicyTest.kt: the policy names exactly the events the app sends.
+class PrivacyPolicyTest {
+    @Test fun policyNamesExactlyTheEventsTheAppSends() {
+        val line = File("../PRIVACY.md").readLines().single { it.startsWith("Events our app sends them:") }
+        val named = Regex("`(\\w+)`").findAll(line).map { it.groupValues[1] }.toSet()
+        assertEquals(Analytics.THIRD_PARTY_EVENTS, named)
+    }
+}
+</code></pre>
+<p>The policy file that test reads (our example, not the company's text; the automatic events are from Google's list [9], Firebase's screen-view page [5] and AppsFlyer's guide [10]):</p>
+<pre><code class="language-markdown">## What our analytics providers receive
+
+Google (Firebase Analytics) and AppsFlyer receive events from this app.
+
+Events our app sends them: `trial_started` and `subscription_purchased`.
+
+Their SDKs also log events on their own. Firebase logs, among others, `first_open`,
+`session_start`, `user_engagement` and `screen_view`; a `screen_view` carries the class
+name of the screen in focus, such as `CycleCalendarActivity`. AppsFlyer sends a message
+each time the app is opened or brought to the foreground.
+
+What you enter in the app goes only to our own servers.
+</code></pre>
+<p>For the order's own purposes, health information "includes, but is not limited to, information concerning fertility, menstruation, sexual activity, pregnancy, and childbirth", and "any individually identifiable information relating to health that is derived or extrapolated from non-health information (e.g., proxy, derivative, inferred, emergent, or algorithmic data)" (order, Definition M, p. 5). The order also bans the company from disclosing health information to third parties for advertising (Section I, p. 8) and requires affirmative express consent before disclosing it for other purposes (Section III, p. 10).</p>
+<p>The vendors set limits of their own. AppsFlyer "contractually restricts customers from processing" categories such as protected health information [6]. Google's policy for Analytics advertising features says that if you collect "sensitive information about your visitors", you "may not use Google Analytics to collect data for the purpose of interest based advertising" [7].</p>
+<h2 id="check-your-own-code">Check your own code</h2>
+<ol>
+<li>List every call into an analytics or attribution SDK. On Android: <code>grep -rnE 'logEvent|trackEvent|\.track\(|AppEventsLogger' app/src</code>. In React Native, look for <code>analytics().logEvent</code> and <code>appsFlyer.logEvent</code>.</li>
+<li>Read each event name and parameter as the vendor receives it. A name such as <code>log_period_save</code> or <code>symptom_added</code> reports a health fact by itself.</li>
+<li>Look for names built at run time (<code>"log_" + entry.type</code>) and for screen names. Firebase logs a <code>screen_view</code> event at each screen transition and identifies the screen by the class name of the Activity in focus [5], so an <code>OvulationTestActivity</code> sends that name. Setting <code>google_analytics_automatic_screen_reporting_enabled</code> to <code>false</code> in the manifest turns that automatic reporting off.</li>
+<li>To see what Firebase receives, run <code>adb shell setprop debug.firebase.analytics.app your.package.name</code>, open DebugView in the Firebase console [8], and use the app.</li>
+<li>Compare the third-party part of your privacy policy with what steps 1 to 4 found. Every event a vendor receives should be named there, and every promise there should hold for every call.</li>
+</ol>
+<aside class="product-note">
+<p>WolfBoy reads your code against the law (GDPR, the EU AI Act, CCPA) and against your own privacy policy, and shows you where they disagree. Its first step, <code>npx wolfboy@0.1.0 scan</code>, is free and uses no AI. Nothing is sent anywhere.</p>
+</aside>
+<h2 id="sources">Sources</h2>
+<ol>
+<li>Complaint for Permanent Injunction, Civil Penalty Judgment, and Other Relief, No. 1:23-cv-3107 (N.D. Ill.), filed 17 May 2023 — <a href="https://www.ftc.gov/system/files/ftc_gov/pdf/2023186easyhealthcarecomplaint.pdf">https://www.ftc.gov/system/files/ftc_gov/pdf/2023186easyhealthcarecomplaint.pdf</a></li>
+<li>Stipulated Order for Permanent Injunction, Civil Penalty Judgment, and Other Relief, No. 1:23-cv-3107 (N.D. Ill.), ECF No. 5, filed 22 June 2023 — <a href="https://www.ftc.gov/system/files/ftc_gov/pdf/2023.06.22_easy_healthcare_signed_order_2023.pdf">https://www.ftc.gov/system/files/ftc_gov/pdf/2023.06.22_easy_healthcare_signed_order_2023.pdf</a></li>
+<li>Federal Trade Commission, case page for matter 202-3186 — <a href="https://www.ftc.gov/legal-library/browse/cases-proceedings/202-3186-easy-healthcare-corporation-us-v">https://www.ftc.gov/legal-library/browse/cases-proceedings/202-3186-easy-healthcare-corporation-us-v</a></li>
+<li>Federal Trade Commission, press release, 17 May 2023 — <a href="https://www.ftc.gov/news-events/news/press-releases/2023/05/ovulation-tracking-app-premom-will-be-barred-sharing-health-data-advertising-under-proposed-ftc">https://www.ftc.gov/news-events/news/press-releases/2023/05/ovulation-tracking-app-premom-will-be-barred-sharing-health-data-advertising-under-proposed-ftc</a></li>
+<li>Firebase documentation on screen-view tracking for Google Analytics — <a href="https://firebase.google.com/docs/analytics/screenviews?platform=android">https://firebase.google.com/docs/analytics/screenviews?platform=android</a></li>
+<li>AppsFlyer, legal page on processing customer data (updated 13 February 2024) — <a href="https://www.appsflyer.com/legal/processing-customer-data">https://www.appsflyer.com/legal/processing-customer-data</a></li>
+<li>Google Analytics Help, "[GA4] Policy requirements for Google Analytics Advertising Features" — <a href="https://support.google.com/analytics/answer/2700409">https://support.google.com/analytics/answer/2700409</a></li>
+<li>Firebase documentation, DebugView — <a href="https://firebase.google.com/docs/analytics/debugview">https://firebase.google.com/docs/analytics/debugview</a></li>
+<li>Google Analytics Help, "Automatically collected events" — <a href="https://support.google.com/analytics/answer/9234069">https://support.google.com/analytics/answer/9234069</a></li>
+<li>AppsFlyer, "Integrate SDK" (Android) — <a href="https://dev.appsflyer.com/hc/docs/integrate-android-sdk">https://dev.appsflyer.com/hc/docs/integrate-android-sdk</a></li>
+</ol>
+<p>Quotations were checked against these sources on 17 November 2026.</p>
+<p><em>This is general information about a published US settlement, written by a software developer; it is not legal advice and does not say whether any law applies to your product.</em></p>
+<p><em>This article was written with AI assistance and checked against the official sources listed above.</em></p>
+<p class="repo-link">WolfBoy on GitHub: <a href="https://github.com/innit-llc/wolfboy">github.com/innit-llc/wolfboy</a></p>
+</article>
+</main>
+<footer class="site"><div class="wrap">WolfBoy, by INNIT Inc.</div></footer>
+</body>
+</html>

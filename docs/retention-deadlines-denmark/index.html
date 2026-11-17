@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Why Arp-Hansen was fined DKK 1,000,000: customer data kept past its own deletion deadlines</title>
+<meta name="description" content="A Danish court fined hotel chain Arp-Hansen DKK 1,000,000; the authority found data kept past the chain's deletion deadlines. What that looks like in Django." />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="WolfBoy blog" />
+<meta property="og:title" content="Why Arp-Hansen was fined DKK 1,000,000: customer data kept past its own deletion deadlines" />
+<meta property="og:description" content="A Danish court fined hotel chain Arp-Hansen DKK 1,000,000; the authority found data kept past the chain's deletion deadlines. What that looks like in Django." />
+<meta property="og:url" content="https://innit-llc.github.io/blog/retention-deadlines-denmark/" />
+<meta property="og:image" content="https://innit-llc.github.io/blog/og/retention-deadlines-denmark.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Why Arp-Hansen was fined DKK 1,000,000: customer data kept past its own deletion deadlines" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="color-scheme" content="light dark" />
+<link rel="preload" href="../fonts/SchibstedGrotesk-normal-400-900-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body class="post">
+<header class="mast"><div class="wrap"><a class="brand" href="../"><b>WolfBoy</b> blog</a></div></header>
+<main class="wrap">
+<article>
+<header>
+<h1>Why Arp-Hansen was fined DKK 1,000,000: customer data kept past its own deletion deadlines</h1>
+<p class="meta"><time datetime="2026-11-17">17 November 2026</time></p>
+</header>
+<p>If your privacy policy or retention schedule says customer data is deleted after a set period, something has to delete it when the period ends, and a retention constant that no code reads deletes nothing. In September 2023 a Danish court fined Arp-Hansen Hotel Group A/S, a hotel chain, DKK 1,000,000. According to the Danish data protection authority, the chain did not keep to deletion deadlines it had set itself, and about 500,000 customer profiles should already have been deleted.</p>
+<section class="case">
+<h2 id="the-decision">The decision</h2>
+<ul>
+<li><span class="k">Country:</span> Denmark. Company: Arp-Hansen Hotel Group A/S, a hotel chain.</li>
+<li><span class="k">Who decided:</span> a court. In Denmark the data protection authority (Datatilsynet) cannot impose GDPR fines itself; it reports the company to the police with a proposed amount, and a court decides [1]. The authority reported the company on 28 July 2020 and proposed DKK 1,100,000 (≈ €147,000). The district court in Lyngby found the company guilty, but a majority of its judges decided on no penalty, and the prosecution appealed [2].</li>
+<li><span class="k">Court and date:</span> Østre Landsret (High Court of Eastern Denmark), judgment of 20 September 2023.</li>
+<li><span class="k">Amount:</span> DKK 1,000,000 (≈ €134,000).</li>
+<li><span class="k">Final or under appeal:</span> according to the authority, the judgment "kan i udgangspunktet ikke ankes" (as a rule cannot be appealed <em>(our translation)</em>), and the company could ask the Appeals Permission Board for leave to go to the Supreme Court [2]. We found no Supreme Court case, so it is final as far as we could find, as of November 2026.</li>
+<li><span class="k">Official texts:</span> <a href="https://www.datatilsynet.dk/afgoerelser/afgoerelser/2020/jul/arp-hansen-hotel-group-a/s-indstilles-til-boede">the authority's 2020 decision page, updated with the outcome</a> [1] and <a href="https://www.datatilsynet.dk/presse-og-nyheder/nyhedsarkiv/2023/sep/landsretten-giver-boede-paa-1-mio-kr-til-hotelkaede">its 2023 news item on the judgment</a> [2]. Every quote about the case below is the authority's.</li>
+</ul>
+</section>
+<h2 id="what-the-decision-says-the-software-did">What the decision says the software did</h2>
+<p>During an inspection visit the authority went through several systems to see whether the company had procedures that keep personal data from being stored longer than necessary ([1], paragraph 2). What it found ([1], paragraph 3, company name replaced with a bracket):</p>
+<blockquote>
+<p>"særligt et bookingsystem indeholdt mange personoplysninger, som burde have været slettet i henhold til [virksomhedens] egne fastsatte slettefrister. […] der var såkaldte kundeprofiler, som – efter [virksomhedens] egne slettefrister – burde være blevet slettet flere år tidligere. […] ca. 500.000 kundeprofiler burde have været slettet på tidspunktet for tilsynsbesøget."</p>
+</blockquote>
+<p><em>(Our translation: "a booking system in particular contained a lot of personal data that should have been deleted under the deletion deadlines [the company] had set itself. […] there were so-called customer profiles which, under [the company's] own deletion deadlines, should have been deleted several years earlier. […] about 500,000 customer profiles should have been deleted at the time of the inspection visit.")</em></p>
+<p>The page names the booking system as one place where data was overdue and gives the 500,000 profiles as a separate count.</p>
+<h2 id="what-this-looks-like-in-code">What this looks like in code</h2>
+<p>In code, the gap looks like this: the deadline is written down and nothing acts on it. The example uses Django.</p>
+<p>This is not Arp-Hansen's code. The decision does not publish any code; this reproduces the behaviour it describes.</p>
+<pre><code class="language-python"># hotel/settings.py
+from datetime import timedelta
+
+# Our deletion deadline: a guest profile goes three years after the last stay.
+GUEST_PROFILE_RETENTION = timedelta(days=3 * 365)
+
+
+# bookings/models.py
+from django.db import models
+
+
+class Guest(models.Model):
+    email = models.EmailField(unique=True)
+    full_name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=40, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_stay = models.DateField(null=True, blank=True)
+
+
+class Booking(models.Model):
+    guest = models.ForeignKey(Guest, on_delete=models.CASCADE, related_name="bookings")
+    check_in = models.DateField()
+    check_out = models.DateField()
+    special_requests = models.TextField(blank=True)
+</code></pre>
+<p><code>grep -rn GUEST_PROFILE_RETENTION .</code> returns one line: the definition. Nothing in the project is scheduled to delete anything, so every guest row stays until someone deletes it by hand. A second gap: a guest who booked and never stayed has <code>last_stay = NULL</code>, and a job that filters on <code>last_stay &lt; cutoff</code> never deletes that row.</p>
+<p>The database shows the result. We filled the reproduction with five years of synthetic guests and ran this query, which counts profiles past the deadline, including guests who never stayed and leaving out guests with an upcoming stay:</p>
+<pre><code class="language-sql">-- :cutoff = today minus the retention period, minus two days of slack
+SELECT count(*) AS overdue, min(g.last_stay) AS oldest_stay
+FROM bookings_guest g
+WHERE (g.last_stay &lt; :cutoff
+       OR (g.last_stay IS NULL AND g.created_at &lt; :cutoff))
+  AND NOT EXISTS (SELECT 1 FROM bookings_booking b
+                  WHERE b.guest_id = g.id AND b.check_out &gt;= :cutoff);
+-- reproduction, 2,000 synthetic guests, cutoff 2023-11-16:
+--   overdue = 232, oldest_stay = 2022-02-07
+-- after one run of the job below: overdue = 0
+</code></pre>
+<p>Part of this would not show in code. A crontab on the production server or a schedule in a hosting dashboard decides whether a job runs, and the repository cannot show that it is installed or still running. Data copied out of the main system, into a spreadsheet export or a newsletter tool, is a separate copy that the job never touches, and so are backups.</p>
+<h2 id="why-it-was-a-violation">Why it was a violation</h2>
+<p>The authority's page cites one provision, GDPR Article 5(1)(e), the storage limitation principle: personal data shall be "kept in a form which permits identification of data subjects for no longer than is necessary for the purposes for which the personal data are processed" [3].</p>
+<p>It proposed the fine "for ikke at have levet op til forordningens krav om sletning (opbevaringsbegrænsning) i artikel 5, stk. 1, litra e" ([1], paragraph 6). <em>(Our translation: "for not having complied with the Regulation's requirement of deletion (storage limitation) in Article 5(1)(e)".)</em></p>
+<p>The head of its inspection unit gave the reason for the police report: in the authority's view the company "ikke har kunnet fremkomme med saglige grunde til den omfattende opbevaring af oplysninger" ([1], paragraph 5). <em>(Our translation: "has not been able to put forward objective reasons for the extensive storage of data".)</em></p>
+<p>After the judgment the authority described the offence: "Overtrædelsen bestod i, at hotelkæden ikke efterlevede de slettefrister, den selv havde fastsat." ([2], under "Manglede at slette oplysninger"). <em>(Our translation: "The violation consisted in the hotel chain not complying with the deletion deadlines it had set itself.")</em></p>
+<h2 id="the-fix">The fix</h2>
+<p>Give the deadline a job that deletes on it, and a check that fails when the job stops. In <code>bookings/management/commands/purge_expired_guests.py</code>:</p>
+<pre><code class="language-python">from datetime import timedelta
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
+from django.db.models import Q
+from django.utils import timezone
+from bookings.models import Guest, RetentionRun
+
+
+def expired_guests(now=None):
+    cutoff = (now or timezone.now()) - settings.GUEST_PROFILE_RETENTION
+    return Guest.objects.filter(
+        Q(last_stay__lt=cutoff.date())
+        | Q(last_stay__isnull=True, created_at__lt=cutoff)  # booked, never stayed
+    ).exclude(bookings__check_out__gte=cutoff.date())  # keep upcoming stays
+
+
+class Command(BaseCommand):
+    def add_arguments(self, parser):
+        parser.add_argument("--check", action="store_true")
+
+    def handle(self, *args, check=False, **options):
+        if check:  # for monitoring: one day of slack between runs
+            grace = timezone.now() - timedelta(days=2)
+            if not RetentionRun.objects.filter(ran_at__gte=grace).exists():
+                raise CommandError("guest purge has not run in the last 2 days")
+            if expired_guests(now=grace).exists():
+                raise CommandError("guest profiles 2+ days past the retention period")
+            return
+        deleted, _ = expired_guests().delete()  # bookings go too (CASCADE)
+        RetentionRun.objects.create(deleted=deleted)
+</code></pre>
+<p><code>RetentionRun</code> is a model with <code>ran_at</code> (<code>auto_now_add=True</code>) and <code>deleted</code>. Schedule the purge daily, for example <code>15 3 * * * cd /srv/hotel &amp;&amp; .venv/bin/python manage.py purge_expired_guests</code>. <code>--check</code> exits non-zero when the purge has not run for two days or a profile is more than two days overdue. Run it from your monitoring system, separately from that crontab, so that a cron line lost in a server move raises an alert. A guest with a booking that ends after the cutoff, including a stay next month, is kept. If part of a booking must be kept longer for another purpose, such as accounting, move that part into its own table with its own stated period.</p>
+<p>The test, in <code>bookings/tests.py</code>, fails on a version of the job without the <code>.exclude(...)</code> line, which deletes the returning guest and next month's booking:</p>
+<pre><code class="language-python">from datetime import date, timedelta
+from django.core.management import call_command
+from django.test import TestCase
+from django.utils import timezone
+from bookings.models import Booking, Guest
+
+FOUR_YEARS = timedelta(days=4 * 365)
+
+
+class PurgeExpiredGuestsTest(TestCase):
+    def test_purge_keeps_only_current_guests(self):
+        today = date.today()
+        Guest.objects.create(email="overdue@x.test", last_stay=today - FOUR_YEARS)
+        Guest.objects.create(email="never-stayed@x.test")
+        back = Guest.objects.create(email="returning@x.test", last_stay=today - FOUR_YEARS)
+        Booking.objects.create(guest=back, check_in=today + timedelta(days=30),
+                               check_out=today + timedelta(days=32))
+        Guest.objects.create(email="recent@x.test", last_stay=today - timedelta(days=100))
+        Guest.objects.exclude(email="recent@x.test").update(
+            created_at=timezone.now() - FOUR_YEARS)
+
+        call_command("purge_expired_guests")
+
+        self.assertEqual(set(Guest.objects.values_list("email", flat=True)),
+                         {"returning@x.test", "recent@x.test"})
+        self.assertEqual(Booking.objects.count(), 1)
+        call_command("purge_expired_guests", "--check")  # raises if not clean
+</code></pre>
+<h2 id="check-your-own-code">Check your own code</h2>
+<ul>
+<li>Take each period from your privacy policy or retention schedule and search for it in every form it could take: <code>3 * 365</code>, <code>1095</code>, <code>years=3</code>, <code>36</code> months, and names like <code>retention</code>, <code>ttl</code>, <code>expire</code>, <code>purge</code>, <code>cleanup</code>. For every hit, find the code that reads the value and deletes with it.</li>
+<li>List every scheduled job the project declares: <code>crontab</code> files, <code>CELERY_BEAT_SCHEDULE</code>, <code>config/schedule.rb</code> (whenever), <code>sidekiq-cron</code> entries, <code>schedule:</code> in <code>.github/workflows/*.yml</code>, Kubernetes <code>CronJob</code> manifests, <code>crons</code> in <code>vercel.json</code>. If the deletion job is not on that list, the repository does not schedule it; find where it is scheduled.</li>
+<li>For each table that holds customer data, find its delete: <code>.delete()</code>, <code>destroy_all</code>, <code>DELETE FROM</code>. A table with a <code>created_at</code> column and no delete path keeps every row.</li>
+<li>Check your deletion filter on two kinds of row: a <code>NULL</code> date (never deleted) and a future booking (deleted too early).</li>
+<li>Run the overdue query above against production, with your own table names and period. It should return 0.</li>
+</ul>
+<aside class="product-note">
+<p>WolfBoy reads your code against the law (GDPR, the EU AI Act, CCPA) and against your own privacy policy, and shows you where they disagree. Its first step, <code>npx wolfboy@0.1.0 scan</code>, is free and uses no AI, and nothing is sent anywhere. On the reproduction above, among the places it listed, it pointed at the <code>GUEST_PROFILE_RETENTION</code> line in <code>hotel/settings.py</code> under rule <code>eu-retention-004</code> ("Retention period stated as a constant, a configuration key or a cleanup argument"). That marks the line as a place to review; whether anything enforces the period is what the next step reads the code for.</p>
+</aside>
+<h2 id="sources">Sources</h2>
+<ol>
+<li>Datatilsynet, decision page of 28 July 2020 (police report and proposed fine), with the update "Sådan er det gået med sagen" — <a href="https://www.datatilsynet.dk/afgoerelser/afgoerelser/2020/jul/arp-hansen-hotel-group-a/s-indstilles-til-boede">https://www.datatilsynet.dk/afgoerelser/afgoerelser/2020/jul/arp-hansen-hotel-group-a/s-indstilles-til-boede</a></li>
+<li>Datatilsynet, "Landsretten giver bøde på 1. mio. kr. til hotelkæde", news item of 28 September 2023 — <a href="https://www.datatilsynet.dk/presse-og-nyheder/nyhedsarkiv/2023/sep/landsretten-giver-boede-paa-1-mio-kr-til-hotelkaede">https://www.datatilsynet.dk/presse-og-nyheder/nyhedsarkiv/2023/sep/landsretten-giver-boede-paa-1-mio-kr-til-hotelkaede</a></li>
+<li>Regulation (EU) 2016/679 (GDPR), Article 5(1)(e) — <a href="https://eur-lex.europa.eu/eli/reg/2016/679/oj">https://eur-lex.europa.eu/eli/reg/2016/679/oj</a> (wording checked against the text as adopted, <a href="https://www.legislation.gov.uk/eur/2016/679/article/5/adopted">https://www.legislation.gov.uk/eur/2016/679/article/5/adopted</a>)</li>
+</ol>
+<p>Quotations were checked against these sources on 17 November 2026.</p>
+<p><em>This is general information about a published court fine, written by a software developer, and not legal advice.</em></p>
+<p><em>This article was written with AI assistance and checked against the official sources listed above.</em></p>
+<p class="repo-link">WolfBoy on GitHub: <a href="https://github.com/innit-llc/wolfboy">github.com/innit-llc/wolfboy</a></p>
+</article>
+</main>
+<footer class="site"><div class="wrap">WolfBoy, by INNIT Inc.</div></footer>
+</body>
+</html>

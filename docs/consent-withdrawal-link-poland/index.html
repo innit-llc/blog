@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Why ClickQuickNow was fined PLN 201,559.50: its 'withdraw consent' link withdrew nothing</title>
+<meta name="description" content="The unsubscribe page of ClickQuickNow, a Polish e-mail marketer, announced a withdrawal that never happened, and empty withdrawal e-mails were ignored." />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="WolfBoy blog" />
+<meta property="og:title" content="Why ClickQuickNow was fined PLN 201,559.50: its 'withdraw consent' link withdrew nothing" />
+<meta property="og:description" content="The unsubscribe page of ClickQuickNow, a Polish e-mail marketer, announced a withdrawal that never happened, and empty withdrawal e-mails were ignored." />
+<meta property="og:url" content="https://innit-llc.github.io/blog/consent-withdrawal-link-poland/" />
+<meta property="og:image" content="https://innit-llc.github.io/blog/og/consent-withdrawal-link-poland.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="Why ClickQuickNow was fined PLN 201,559.50: its 'withdraw consent' link withdrew nothing" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="color-scheme" content="light dark" />
+<link rel="preload" href="../fonts/SchibstedGrotesk-normal-400-900-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body class="post">
+<header class="mast"><div class="wrap"><a class="brand" href="../"><b>WolfBoy</b> blog</a></div></header>
+<main class="wrap">
+<article>
+<header>
+<h1>Why ClickQuickNow was fined PLN 201,559.50: its 'withdraw consent' link withdrew nothing</h1>
+<p class="meta"><time datetime="2026-11-17">17 November 2026</time></p>
+</header>
+<p>A "withdraw consent" link must actually withdraw consent, and a Polish fine, upheld by the Supreme Administrative Court in 2024, shows what happens when it does not. Poland's data protection authority fined ClickQuickNow, an e-mail marketing company, PLN 201,559.50 (≈ €47,000) because its "withdraw consent" link ended on a page announcing a withdrawal that never happened, while the consent stayed in place. Withdrawal requests that arrived as empty e-mails went unprocessed too.</p>
+<section class="case">
+<h2 id="the-decision">The decision</h2>
+<ul>
+<li><span class="k">Poland:</span> ClickQuickNow, an e-mail marketing company, anonymised in the decision and named in UODO's news item of 25 February 2021 [7]; UODO's 2024 news items spell it "ClickOuickNow".</li>
+<li>Decided by the President of the Personal Data Protection Office (UODO), decision ZSPR.421.7.2019 of 16 October 2019. The Voivodeship Administrative Court in Warsaw upheld it, and the Supreme Administrative Court (NSA) dismissed the cassation appeal on 12 November 2024.</li>
+<li><span class="k">Fine:</span> PLN 201,559.50 (≈ €47,000, the decision's own conversion).</li>
+<li>Final (<em>prawomocna</em>), as of November 2026.</li>
+<li><span class="k">Official text (Polish):</span> <a href="https://orzeczenia.uodo.gov.pl/document/urn:ndoc:gov:pl:uodo:2019:zspr_421_7">orzeczenia.uodo.gov.pl</a>.</li>
+</ul>
+</section>
+<h2 id="what-the-decision-says-the-software-did">What the decision says the software did</h2>
+<p>The decision has no numbered paragraphs; this section quotes Part I of its statement of reasons (<em>Uzasadnienie</em>).</p>
+<p>What a subscriber went through:</p>
+<ol>
+<li>They clicked „odwołanie zgody” ("withdrawal of consent") in a marketing e-mail.</li>
+<li>A page asked why, offering two answers (ads that don't interest me; ads too often). Without an answer, it went no further.</li>
+<li>The next page read „Pani odwołanie zgody dziś (…)!”, which UODO's English news item gives as "Your withdrawal of consent today 13.02.2019 !", followed by an address to write to.</li>
+<li>Consent stayed in place. For the company, only a further e-mail to that address, stating exactly what the person wanted, withdrew it. People who could not withdraw complained to UODO.</li>
+</ol>
+<p>UODO on step 3:</p>
+<blockquote>
+<p>„zdecydowana większość osób po zapoznaniu się z treścią tak brzmiącego komunikatu stwierdza, że oświadczenie o odwołaniu zgody zostało przyjęte przez Spółkę w dacie wskazanej w komunikacie i w związku z tym dalszych czynności w tym zakresie już nie podejmuje”</p>
+<p>"the vast majority of people who read a message worded like this conclude that the Company accepted their withdrawal on the date the message gives, and so take no further steps" <em>(our translation)</em></p>
+</blockquote>
+<p>Separately, the company received e-mails with no text every day, sent to an address published on two websites, and „tego typu wiadomości Spółka pozostawia bez rozpatrzenia” ("leaves messages of this kind unprocessed" <em>(our translation)</em>). UODO read them as withdrawals: „określenie adresata w taki sposób wskazuje świadome działania nadawcy takiego e-maila, tzn., że odwołuje on zgodę” ("addressing the message this way shows a deliberate act by its sender, namely that he is withdrawing consent" <em>(our translation)</em>). The decision redacts that address, the websites and the daily count. The company said the two sites were e-mail services whose automated mechanisms sent them.</p>
+<h2 id="what-this-looks-like-in-code">What this looks like in code</h2>
+<p>Stack: Node.js, Express, PostgreSQL. The campaign sender selects subscribers whose <code>consents.withdrawn_at</code> is <code>NULL</code>, so only a write to that column stops the e-mails.</p>
+<p>This is not ClickQuickNow's code. The decision does not publish any code; this reproduces the behaviour it describes.</p>
+<pre><code class="language-js">// The "withdraw consent" link in every campaign e-mail: /unsubscribe?t=&lt;token&gt;
+router.get('/unsubscribe', (req, res) =&gt; {
+  // Step 1: "Why are you leaving?"  A: ads I'm not interested in / B: ads too often
+  res.render('unsubscribe-reason', { t: req.query.t });
+});
+
+router.post('/unsubscribe', async (req, res) =&gt; {
+  const sub = await subscriberFromToken(req.body.t);
+  if (!req.body.reason) return res.redirect(`/unsubscribe?t=${req.body.t}`); // no answer, no way on
+  await db.query('INSERT INTO unsubscribe_feedback (subscriber_id, reason) VALUES ($1, $2)',
+    [sub.id, req.body.reason]);
+  // Step 2: a success message. Nothing here writes consents.withdrawn_at.
+  res.render('unsubscribe-done', {
+    message: `Your withdrawal of consent today ${new Date().toLocaleDateString()}!`,
+    footer: 'You can withdraw your consent at any time by writing to privacy@example.com.',
+  });
+});
+</code></pre>
+<p>Then a mailbox that receives withdrawal requests:</p>
+<pre><code class="language-js">// Polls privacy@example.com every five minutes.
+const KEYWORDS = /withdraw|unsubscribe|remove me|delete/i;
+
+async function processInbox(messages, { openTicket, archive }) {
+  for (const msg of messages) {
+    const text = `${msg.subject ?? ''} ${msg.text ?? ''}`.trim();
+    if (KEYWORDS.test(text)) {
+      await openTicket(msg); // a person handles it, eventually
+    }
+    // An empty message matches nothing: archived, never answered, never processed.
+    await archive(msg);
+  }
+}
+</code></pre>
+<p>If a person reads that mailbox, this half is a manual process no code search will find.</p>
+<p>One source of such messages is a <code>mailto:</code> address in a <code>List-Unsubscribe</code> header (RFC 2369): the RFC expects mail clients to offer a button that sends to it, and some do, according to SendGrid's documentation.</p>
+<h2 id="why-it-was-a-violation">Why it was a violation</h2>
+<p>On the link, UODO found that the process „utrudnia, a wręcz uniemożliwia” ("hinders, and indeed prevents" <em>(our translation)</em>) withdrawal, contrary to Article 7(3), under which withdrawing consent must be as easy as giving it. Requiring a reason had no legal basis. The confirmation and the instructions on how to withdraw that followed it were „sprzeczne ze sobą komunikaty” ("contradictory messages" <em>(our translation)</em>), which breached fairness and transparency under Article 5(1)(a). The company did not facilitate the exercise of rights (Article 12(2)), and the process blocked erasure after withdrawal (Article 17(1)(b)). UODO rated the 17(1)(b) and 5(1)(a) breaches the most serious, for their seriousness and the number of people affected (redacted; UODO's 2024 news item gives more than 2.1 million in the database on 31 January 2019). It judged the breach of Articles 7(3), 12(2) and 17(1)(b) intentional.</p>
+<p>On the mailbox, under Article 24(1) (Part II), the company's measures were ineffective: the empty-e-mail problem had not been remedied, and the company „nie prowadzi żadnej korespondencji w sprawie wniosków o odwołanie zgody” ("conducts no correspondence about withdrawal requests" <em>(our translation)</em>). In Part I, UODO noted it could have written back to ask what an e-mail meant. Under Article 6(1) with 5(1)(a) (Part III), the company kept withdrawal e-mails from people absent from its database instead of deleting them once it had checked; this weighed little in the fine.</p>
+<p>According to UODO's English summary, the NSA said in its oral reasoning that the link "did not result in the prompt revocation of consent and, in fact, the messages sent via the link were misleading to the person who wished to withdraw consent."</p>
+<h2 id="the-fix">The fix</h2>
+<p>Every channel calls one function that writes the withdrawal and cancels queued sends (<code>services/consent.js</code>, then the route and the inbox job):</p>
+<pre><code class="language-js">async function withdrawConsent(subscriberId, via) {
+  await db.query(`UPDATE consents SET withdrawn_at = now(), withdrawn_via = $2
+     WHERE subscriber_id = $1 AND purpose = 'marketing' AND withdrawn_at IS NULL`,
+    [subscriberId, via]);
+  await db.query('DELETE FROM send_queue WHERE subscriber_id = $1', [subscriberId]);
+}
+
+router.get('/unsubscribe', (req, res) =&gt; res.render('unsubscribe-confirm', { t: req.query.t }));
+router.post('/unsubscribe', async (req, res) =&gt; { // also the RFC 8058 one-click target
+  const sub = await subscriberFromToken(req.body?.t ?? req.query.t);
+  if (!sub) return res.status(400).render('unsubscribe-error');
+  await withdrawConsent(sub.id, 'link');
+  if (req.body?.reason) await saveFeedback(sub.id, req.body.reason); // optional
+  res.render('unsubscribe-done', { message: 'Consent withdrawn. No more e-mail from us.' });
+});
+
+async function processInbox(messages, { reply, openTicket, deleteMessage }) {
+  for (const msg of messages) {
+    const sub = await findSubscriberByEmail(msg.from);
+    if (!sub) { await reply(msg.from, NO_DATA_REPLY); await deleteMessage(msg); continue; }
+    const text = `${msg.subject ?? ''} ${msg.text ?? ''}`;
+    if (msg.to === WITHDRAW_ADDRESS || WITHDRAW_WORDS.test(text)) {
+      await withdrawConsent(sub.id, 'email'); // an empty message here is a withdrawal
+      await reply(msg.from, 'Your consent is withdrawn. We have stopped sending you e-mail.');
+    } else {
+      await reply(msg.from, 'We received your message. What would you like us to do?');
+      await openTicket(msg);
+    }
+  }
+}
+</code></pre>
+<p>What changed:</p>
+<ul>
+<li>The success page renders only after the write, and the reason field blocks nothing.</li>
+<li><code>GET</code> shows one button and writes nothing, because link scanners fetch URLs on their own. The company cited that worry to UODO for its two steps (points 13 and 18 of its explanations). RFC 8058 answers it with <code>POST</code>; it exists because "anti-spam software often fetches all resources in mail header fields automatically". With <code>List-Unsubscribe-Post: List-Unsubscribe=One-Click</code> and a DKIM signature over both headers, a provider's one-click button can post to this handler.</li>
+<li>Mail to the dedicated withdrawal address counts as a withdrawal, as UODO read it. Every message gets a reply, including one from an address the database does not hold, which is then deleted.</li>
+</ul>
+<p>The sketch stops the e-mail but does not erase the record. Article 17(1)(b) provides for erasure once consent is withdrawn and no other legal ground remains.</p>
+<h2 id="check-your-own-code">Check your own code</h2>
+<ul>
+<li>Search for <code>unsubscribe</code>, <code>optout</code>, <code>withdraw</code> and <code>List-Unsubscribe</code>, and follow the handler to the database. Does it write the column your sending query reads (<code>withdrawn_at</code>, <code>unsubscribed</code>, <code>marketing_consent</code>, <code>status</code>)? A handler that only renders a template or writes a feedback table matches the reproduction.</li>
+<li>Look for anything required before the write: a reason, a survey redirect, a CAPTCHA, a login.</li>
+<li>Check that the "unsubscribed" page renders only after the write.</li>
+<li>Follow a message with no subject and no body through the code that reads your privacy mailbox (an IMAP poller or an inbound-mail webhook). Does it end in <code>archive</code> or a bare <code>continue</code>?</li>
+<li>Check that campaigns queued before a withdrawal re-check consent at send time.</li>
+<li>If an e-mail platform sends for you, its suppression list needs the withdrawal too, through an API call or a setting your schema will not show.</li>
+</ul>
+<aside class="product-note">
+<p>WolfBoy reads your code against the law (GDPR, the EU AI Act, CCPA) and against your own privacy policy, and shows you where they disagree. Its quick scan, <code>npx wolfboy@0.1.0 scan</code>, is free, uses no AI and sends nothing anywhere. On this article's project, it marked the campaign sender for a review of marketing opt-in and opt-out (rule <code>eu-consent-018</code>) and the inbox job for a review of request handling (rule <code>eu-dsr-002</code>). It marks places to review; it does not decide what is lawful.</p>
+</aside>
+<h2 id="sources">Sources</h2>
+<ol>
+<li>UODO (President of the Personal Data Protection Office), decision ZSPR.421.7.2019 of 16 October 2019 (Polish) — <a href="https://orzeczenia.uodo.gov.pl/document/urn:ndoc:gov:pl:uodo:2019:zspr_421_7">https://orzeczenia.uodo.gov.pl/document/urn:ndoc:gov:pl:uodo:2019:zspr_421_7</a></li>
+<li>UODO, "The Supreme Administrative Court confirmed that withdrawal of consent cannot be impeded", 15 November 2024 — <a href="https://bip.uodo.gov.pl/en/553/1790">https://bip.uodo.gov.pl/en/553/1790</a></li>
+<li>Regulation (EU) 2016/679 (General Data Protection Regulation) — <a href="https://eur-lex.europa.eu/eli/reg/2016/679/oj">https://eur-lex.europa.eu/eli/reg/2016/679/oj</a></li>
+<li>RFC 8058, "Signaling One-Click Functionality for List Email Headers" — <a href="https://www.rfc-editor.org/rfc/rfc8058">https://www.rfc-editor.org/rfc/rfc8058</a></li>
+<li>RFC 2369, "The Use of URLs as Meta-Syntax for Core Mail List Commands and their Transport through Message Header Fields" — <a href="https://www.rfc-editor.org/rfc/rfc2369">https://www.rfc-editor.org/rfc/rfc2369</a></li>
+<li>Twilio SendGrid (an e-mail sending service), "List-Unsubscribe", vendor documentation — <a href="https://www.twilio.com/docs/sendgrid/ui/sending-email/list-unsubscribe">https://www.twilio.com/docs/sendgrid/ui/sending-email/list-unsubscribe</a></li>
+<li>UODO, „WSA oddalił skargę ClickQuickNow na decyzję UODO”, news item of 25 February 2021 (Polish; archived copy, the original address no longer resolves) — <a href="https://web.archive.org/web/20230609015535/https://archiwum.uodo.gov.pl/pl/138/1927">https://web.archive.org/web/20230609015535/https://archiwum.uodo.gov.pl/pl/138/1927</a></li>
+</ol>
+<p>Quotations were checked against these sources on 17 November 2026.</p>
+<p><em>This is general information about a published decision, written by a software developer; it is not legal advice and does not establish whether any law applies to you or whether your product complies.</em></p>
+<p><em>This article was written with AI assistance and checked against the official sources listed above.</em></p>
+<p class="repo-link">WolfBoy on GitHub: <a href="https://github.com/innit-llc/wolfboy">github.com/innit-llc/wolfboy</a></p>
+</article>
+</main>
+<footer class="site"><div class="wrap">WolfBoy, by INNIT Inc.</div></footer>
+</body>
+</html>
