@@ -44,7 +44,7 @@ end
 </code></pre>
 <p>It asks Gravatar whether this email address has a picture. A redirect to the default image (a <code>302</code>) means no. The port-80 request and the <code>'302'</code> comparison date from a 2012 commit.</p>
 <h2 id="reading-it-properly">Reading it properly</h2>
-<p>I read the code around it, with AI assistance, and three things stood out before I ran anything.</p>
+<p>I read the code around it and three things stood out before I ran anything.</p>
 <p>The first was the transport. The port is 80 and <code>use_ssl</code> is never set, so the MD5 of the address travels in the request path, in cleartext.</p>
 <p>The second was the caller. <code>has_gravatar?</code> runs from <code>before_create :set_default_avatar_kind</code>, which means it runs when a user row is created: self sign-up, first SSO login, trial sign-up. For self sign-up the row is created when the address is submitted on the form, before anyone has verified it.</p>
 <p>The third was the last line of the method, <code>response.code != '302'</code>, which counts everything that isn't a 302 as "has a Gravatar".</p>
