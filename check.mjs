@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { SITE, POSTS, PRODUCT_START, PRODUCT_END, AI_LINE, DEVTO_BLOG_LINE, FONT_FILES, DECISION_HEADING, shareFile, coverFile } from './build.mjs';
+import { SITE, POSTS, PRODUCT_START, PRODUCT_END, AI_LINE, DEVTO_BLOG_LINE, FONT_FILES, DECISION_HEADING, factsHeading, shareFile, coverFile } from './build.mjs';
 
 const SHARE_SIZE = [1200, 630];
 
@@ -240,8 +240,8 @@ export function runChecks({ articlesDir, siteDir, devtoDir }) {
     }
     // Case block: the article's own decision section, once, at the head.
     const caseCount = html.split('<section class="case">').length - 1;
-    const caseRe = new RegExp(`<section class="case">\\n<h2 id="[^"]+">${DECISION_HEADING}</h2>\\n<ul>`);
-    if (caseCount !== 1 || !caseRe.test(html)) fail.push(`${slug}: no case block made from "${DECISION_HEADING}"`);
+    const caseRe = new RegExp(`<section class="case">\\n<h2 id="[^"]+">${factsHeading(post)}</h2>\\n<ul>`);
+    if (caseCount !== 1 || !caseRe.test(html)) fail.push(`${slug}: no case block made from "${factsHeading(post)}"`);
     const aiText = AI_LINE.slice(1, -1);
     if (!html.includes(`<p><em>${aiText}</em></p>`)) fail.push(`${slug}: blog AI line not worded exactly`);
     if (html.includes('drafted with AI')) fail.push(`${slug}: blog keeps the old AI line`);

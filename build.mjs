@@ -58,6 +58,8 @@ export const FONT_FILES = [
   'OFL.txt',
 ];
 export const DECISION_HEADING = 'The decision';
+// The heading of a post's facts box: "The decision" unless the post names another (`factsHead`).
+export const factsHeading = (post) => post.factsHead || DECISION_HEADING;
 export const shareFile = (slug) => `og/${slug || 'index'}.png`;
 // dev.to cover image of an article (its `main_image`): the title alone, at dev.to's crop size.
 export const coverFile = (slug) => `cover/${slug}.png`;
@@ -127,11 +129,11 @@ function wordmark() {
 
 // Splits Markdown around the one "## The decision" section (up to the next
 // level-1 or level-2 heading).
-function splitDecision(md, slug) {
+function splitDecision(md, slug, head = DECISION_HEADING) {
   const lines = md.split('\n');
-  const heading = new RegExp(`^## ${DECISION_HEADING}\\s*$`);
+  const heading = new RegExp(`^## ${head}\\s*$`);
   const starts = lines.flatMap((l, i) => (heading.test(l) ? [i] : []));
-  if (starts.length !== 1) throw new Error(`${slug}: expected one "## ${DECISION_HEADING}" section before the product block`);
+  if (starts.length !== 1) throw new Error(`${slug}: expected one "## ${head}" section before the product block`);
   const s = starts[0];
   let e = lines.findIndex((l, i) => i > s && /^#{1,2}\s/.test(l));
   if (e === -1) e = lines.length;
@@ -239,7 +241,7 @@ export function articleHtml(source, post) {
   if (!data.title || !data.description) throw new Error(`${post.slug}: title or description missing`);
   const withAi = replaceAiLine(body, post.slug, AI_LINE);
   const { before, block, after } = splitProduct(withAi, post.slug);
-  const { opening, decision, rest } = splitDecision(before, post.slug);
+  const { opening, decision, rest } = splitDecision(before, post.slug, factsHeading(post));
   const usedIds = new Set();
   const parts = [opening, decision, rest, block, after].map((md) => renderMarkdown(md, { usedIds }));
   const caseHtml = boldLabels(parts[1].html, '<span class="k">', '</span>');
@@ -330,7 +332,7 @@ export function build(articlesDir) {
   renderShareImages([
     ...entries.map((e) => ({
       out: path.join(siteDir, shareFile(e.slug)),
-      html: shareHtml({ ...common, title: e.title, titleSize: 60, sheetHead: DECISION_HEADING, rows: e.facts }),
+      html: shareHtml({ ...common, title: e.title, titleSize: 60, sheetHead: factsHeading(e), rows: e.facts }),
     })),
     ...entries.map((e) => ({
       out: path.join(siteDir, coverFile(e.slug)), w: COVER_W, h: COVER_H,
