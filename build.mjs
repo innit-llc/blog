@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderMarkdown, renderInline, splitFrontMatter, escapeHtml, escapeAttr } from './markdown.mjs';
-import { shareHtml, renderShareImages, SHARE_W, SHARE_H } from './share.mjs';
+import { shareHtml, renderShareImages, SHARE_W, SHARE_H, COVER_W, COVER_H } from './share.mjs';
 import { runChecks } from './check.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -39,7 +39,7 @@ export const SITE = {
 // share image, each named by the words the item starts with; the image shows
 // the first sentence of each, read from the article at build time.
 export const POSTS = [
-  { slug: 'consent-withdrawal-link-poland', date: '2026-11-17', canonical: '', card: ['Poland', 'Fine', 'Final'] },
+  { slug: 'consent-withdrawal-link-poland', date: '2026-11-17', canonical: '', card: ['Fine', 'Final'] },
   { slug: 'retention-deadlines-denmark', date: '2026-11-17', canonical: '', card: ['Country', 'Court and date', 'Amount'] },
   { slug: 'health-event-names-to-analytics-sdks-us', date: '2026-11-17', canonical: '', card: ['Who', 'Amount', 'Status'] },
 ];
@@ -59,6 +59,8 @@ export const FONT_FILES = [
 ];
 export const DECISION_HEADING = 'The decision';
 export const shareFile = (slug) => `og/${slug || 'index'}.png`;
+// dev.to cover image of an article (its `main_image`): the title alone, at dev.to's crop size.
+export const coverFile = (slug) => `cover/${slug}.png`;
 
 export const PRODUCT_START = '<!-- product-block:start -->';
 export const PRODUCT_END = '<!-- product-block:end -->';
@@ -329,6 +331,10 @@ export function build(articlesDir) {
     ...entries.map((e) => ({
       out: path.join(siteDir, shareFile(e.slug)),
       html: shareHtml({ ...common, title: e.title, titleSize: 60, sheetHead: DECISION_HEADING, rows: e.facts }),
+    })),
+    ...entries.map((e) => ({
+      out: path.join(siteDir, coverFile(e.slug)), w: COVER_W, h: COVER_H,
+      html: shareHtml({ ...common, title: e.title, titleSize: 64, sheetHead: '', rows: [], w: COVER_W, h: COVER_H }),
     })),
     {
       out: path.join(siteDir, shareFile('')),

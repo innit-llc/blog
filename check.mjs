@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { SITE, POSTS, PRODUCT_START, PRODUCT_END, AI_LINE, DEVTO_BLOG_LINE, FONT_FILES, DECISION_HEADING, shareFile } from './build.mjs';
+import { SITE, POSTS, PRODUCT_START, PRODUCT_END, AI_LINE, DEVTO_BLOG_LINE, FONT_FILES, DECISION_HEADING, shareFile, coverFile } from './build.mjs';
 
 const SHARE_SIZE = [1200, 630];
 
@@ -255,8 +255,13 @@ export function runChecks({ articlesDir, siteDir, devtoDir }) {
 
   // The site holds only what the build writes.
   const expected = new Set(['.nojekyll', 'index.html', 'style.css', shareFile(''), ...FONT_FILES.map((f) => `fonts/${f}`),
-    ...POSTS.flatMap((p) => [`${p.slug}/index.html`, shareFile(p.slug)])]);
+    ...POSTS.flatMap((p) => [`${p.slug}/index.html`, shareFile(p.slug), coverFile(p.slug)])]);
   for (const f of files) if (!expected.has(rel(f))) fail.push(`unexpected file ${rel(f)}`);
+  // dev.to covers: one per post, a 1000x420 PNG (dev.to's crop size).
+  for (const p of POSTS) {
+    const c = path.join(siteDir, coverFile(p.slug)); const s = fs.existsSync(c) ? pngSize(c) : null;
+    if (!s || s[0] !== 1000 || s[1] !== 420) fail.push(`${p.slug}: dev.to cover missing or not 1000x420 (${s})`);
+  }
   return fail;
 }
 
