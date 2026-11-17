@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A 301 instead of a 302 made Loomio mark new sign-ups as Gravatar users</title>
+<meta name="description" content="Loomio asked Gravatar about every new sign-up over plain HTTP and read anything but a 302 as yes. Gravatar now answers 301. How I found it, and the 3.12.0 fix." />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="WolfBoy blog" />
+<meta property="og:title" content="A 301 instead of a 302 made Loomio mark new sign-ups as Gravatar users" />
+<meta property="og:description" content="Loomio asked Gravatar about every new sign-up over plain HTTP and read anything but a 302 as yes. Gravatar now answers 301. How I found it, and the 3.12.0 fix." />
+<meta property="og:url" content="https://innit-llc.github.io/blog/loomio-gravatar-301/" />
+<meta property="og:image" content="https://innit-llc.github.io/blog/og/loomio-gravatar-301.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="A 301 instead of a 302 made Loomio mark new sign-ups as Gravatar users" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="color-scheme" content="light dark" />
+<link rel="preload" href="../fonts/SchibstedGrotesk-normal-400-900-latin.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+<link rel="stylesheet" href="../style.css" />
+</head>
+<body class="post">
+<header class="mast"><div class="wrap"><a class="brand" href="../"><b>WolfBoy</b> blog</a></div></header>
+<main class="wrap">
+<article>
+<header>
+<h1>A 301 instead of a 302 made Loomio mark new sign-ups as Gravatar users</h1>
+<p class="meta"><time datetime="2026-11-17">17 November 2026</time></p>
+</header>
+<p>In late September I ran a static-analysis and LLM review tool I'm building on Loomio v3.9.0. Loomio is an open-source app for group decisions. The tool flagged one method as sending a hash of an email address to a third party that isn't disclosed.</p>
+<p>The method is eleven lines long, in <code>app/models/concerns/has_avatar.rb</code>:</p>
+<pre><code class="language-ruby">def has_gravatar?(options = {})
+  return false if Rails.env.test?
+  hash = Digest::MD5.hexdigest(email.to_s.downcase)
+  options = { :rating =&gt; 'x', :timeout =&gt; 2 }.merge(options)
+  http = Net::HTTP.new('www.gravatar.com', 80)
+  http.read_timeout = options[:timeout]
+  response = http.request_head("/avatar/#{hash}?rating=#{options[:rating]}&amp;default=http://gravatar.com/avatar")
+  response.code != '302'
+rescue StandardError, Timeout::Error
+  false  # Don't show "gravatar" if the service is down or slow
+end
+</code></pre>
+<p>It asks Gravatar whether this email address has a picture. A redirect to the default image (a <code>302</code>) means no. The port-80 request and the <code>'302'</code> comparison date from a 2012 commit.</p>
+<h2 id="reading-it-properly">Reading it properly</h2>
+<p>I read the code around it, with AI assistance, and three things stood out before I ran anything.</p>
+<p>The first was the transport. The port is 80 and <code>use_ssl</code> is never set, so the MD5 of the address travels in the request path, in cleartext.</p>
+<p>The second was the caller. <code>has_gravatar?</code> runs from <code>before_create :set_default_avatar_kind</code>, which means it runs when a user row is created: self sign-up, first SSO login, trial sign-up. For self sign-up the row is created when the address is submitted on the form, before anyone has verified it.</p>
+<p>The third was the last line of the method, <code>response.code != '302'</code>, which counts everything that isn't a 302 as "has a Gravatar".</p>
+<h2 id="running-it">Running it</h2>
+<p>I copied the method body into a script, removed the test-environment guard, added two <code>puts</code> lines, and put the same request over HTTPS next to it. I used two addresses on the reserved <code>.invalid</code> TLD (the first is shown). I didn't touch loomio.com or any other live instance.</p>
+<pre><code>ruby 3.3.9, net-http 0.4.1, 2026-10-20 08:08:10 UTC
+nobody-1@example.invalid md5=bbcdd833ef228897b40575bcd6f25cf5
+  port 80 -&gt; response.code="301" (String) location=https://www.gravatar.com/avatar/bbcdd833ef228897b40575bcd6f25cf5?rating=x&amp;default=http://gravatar.com/avatar
+  has_gravatar? as written (port 80) =&gt; true
+  port 443 -&gt; response.code="302"
+  same check over HTTPS              =&gt; false
+</code></pre>
+<p>The method returned <code>true</code> for an address that cannot exist. Over HTTPS, Gravatar still answers <code>302</code> for "no picture". Over port 80 it answers <code>301</code> and points at the same URL on HTTPS. <code>Net::HTTP#request_head</code> doesn't follow redirects, so the code sees the string <code>"301"</code>, and <code>"301" != "302"</code> is true.</p>
+<p>Loomio's code hadn't changed since 2012; Gravatar's server had. The Internet Archive has a plain-HTTP avatar URL returning <code>200</code> on 2023-04-13 and a <code>301</code> to HTTPS on 2023-10-04, with nothing captured in between. Somewhere in that window the check started answering yes.</p>
+<h2 id="what-that-does-to-people">What that does to people</h2>
+<p>On a server that reaches www.gravatar.com directly on port 80, accounts created by sign-up, SSO or trial without an uploaded picture end up with <code>avatar_kind = 'gravatar'</code>. Their avatar URL becomes <code>https://secure.gravatar.com/avatar/&lt;md5&gt;.png?d=retro&amp;r=pg&amp;s=128</code>.</p>
+<p>That URL then goes wherever the avatar goes: other members, notification emails, Microsoft Teams webhooks, Matrix chatbot messages. For authors and commenters in non-private discussions it goes to logged-out visitors too, in the JSON and in the server-rendered HTML. Every browser or mail client that loads the image sends Gravatar the viewer's IP address along with the member's hash. None of these people chose Gravatar, and there was no setting to turn it off.</p>
+<h2 id="an-md5-of-an-email-address-is-not-anonymous">An MD5 of an email address is not anonymous</h2>
+<p>You can't reverse a hash, but you can guess the input, and email addresses are guessable. At Hack.lu in 2013, Dominique Bongard crawled Gravatar hashes from a French political forum and recovered 70% of the addresses behind them [3]. Have I Been Pwned's Gravatar entry says 167 million MD5 hashes were scraped after a technique was published in October 2020, and 114 million of them cracked [4].</p>
+<p>Gravatar's docs now ask for SHA-256 [6]. I don't think that changes much. A message on the oss-security list about a similar CVE makes the same point: both functions are fast to compute over guessed addresses [5]. That is why my report was about the cleartext request and about publishing hashes for people who never opted in, and not about the hash function.</p>
+<p>How much this matters depends on who runs the instance, because Loomio is used by political parties and trade unions. Where the server's IP address identifies the instance, a network observer who knows, guesses or cracks the address learns that it was submitted there. It doesn't show that its owner submitted it, or that the sign-up was ever completed.</p>
+<h2 id="the-report-and-the-fix">The report and the fix</h2>
+<p>I reported it privately through GitHub on 20 October. The maintainers committed the fix the next day and released 3.12.0 with the advisory on the 22nd, two days after the report.</p>
+<p>They did what I had put first in my suggestions and deleted the lookup. The fix commit removes <code>has_gravatar?</code> and leaves this [2]:</p>
+<pre><code class="language-ruby">def set_default_avatar_kind
+  if uploaded_avatar.attached?
+    self.avatar_kind = :uploaded
+  else
+    self.avatar_kind = :initials
+  end
+end
+</code></pre>
+<p>New accounts get initials, and Gravatar is something you select in your profile settings. The same commit stops the profile form from loading a Gravatar preview in the browser, and adds tests asserting that no request goes to gravatar.com.</p>
+<p>It does not touch existing accounts. The release notes say existing Gravatar selections are preserved [7], and nothing in the <code>users</code> table distinguishes a real selection from one the old check made. I had no good answer for this in my report either: re-checking every account would send every hash to Gravatar again. If you ran an instance before 3.12.0, that part is still yours to decide.</p>
+<h2 id="what-to-check-in-your-own-code">What to check in your own code</h2>
+<p>Search for comparisons against a single status code from someone else's server, especially negated ones. <code>!= '302'</code> and <code>== 200</code> are different bets. The second fails towards "no" when the other side changes, and for a privacy decision I think that is the only acceptable direction.</p>
+<p>Search for <code>Net::HTTP.new(host, 80)</code> and for <code>http://</code> in URLs your server requests. A redirect to HTTPS does not protect you, because the path has already gone out by the time the redirect comes back.</p>
+<p>Look at what runs in <code>before_create</code> and similar callbacks. In Loomio, the call to Gravatar went out as soon as an address was submitted on the sign-up form.</p>
+<p>Check, too, whether the code is skipped under test, as this method was by its first line.</p>
+<section class="case">
+<h2 id="the-advisory">The advisory</h2>
+<ul>
+<li><span class="k">Project:</span> Loomio (<code>loomio/loomio</code>)</li>
+<li><span class="k">Affected versions:</span> 3.11.1 and earlier</li>
+<li><span class="k">Fixed in:</span> 3.12.0</li>
+<li><span class="k">Advisory:</span> GHSA-55qv-f272-488r [1]</li>
+<li><span class="k">Severity as published:</span> Medium (CVSS 4.0 base score 6.9)</li>
+<li><span class="k">Published:</span> 22 October 2026</li>
+</ul>
+</section>
+
+<aside class="product-note">
+<p>The tool in this story is WolfBoy. It flagged the email-hash send to an undisclosed third party; the plain HTTP and the 301 came from reading and running the code. It marks places to review. It does not decide what is lawful or find every bug.</p>
+</aside>
+<h2 id="sources">Sources</h2>
+<ol>
+<li>Loomio security advisory GHSA-55qv-f272-488r, published 22 October 2026: <a href="https://github.com/loomio/loomio/security/advisories/GHSA-55qv-f272-488r">https://github.com/loomio/loomio/security/advisories/GHSA-55qv-f272-488r</a></li>
+<li>Loomio, fix commit 9ad26cd: <a href="https://github.com/loomio/loomio/commit/9ad26cd089805461ae45d07cfbfb8d697f73a5e3">https://github.com/loomio/loomio/commit/9ad26cd089805461ae45d07cfbfb8d697f73a5e3</a></li>
+<li>Dominique Bongard, "De-anonymizing Users of French Political Forums", Hack.lu 2013 (slides): <a href="https://archive.hack.lu/2013/dbongard_hacklu_2013.pdf">https://archive.hack.lu/2013/dbongard_hacklu_2013.pdf</a></li>
+<li>Have I Been Pwned, Gravatar entry (added 5 December 2021): <a href="https://haveibeenpwned.com/Breach/Gravatar">https://haveibeenpwned.com/Breach/Gravatar</a></li>
+<li>oss-security, 25 September 2024, on CVE-2024-40761: <a href="https://www.openwall.com/lists/oss-security/2024/09/25/5">https://www.openwall.com/lists/oss-security/2024/09/25/5</a></li>
+<li>Gravatar documentation, "Creating identifier (hash)": <a href="https://docs.gravatar.com/rest/hash/">https://docs.gravatar.com/rest/hash/</a></li>
+<li>Loomio v3.12.0 release notes: <a href="https://github.com/loomio/loomio/releases/tag/v3.12.0">https://github.com/loomio/loomio/releases/tag/v3.12.0</a></li>
+</ol>
+<p><em>This is a developer's account of a published advisory, not legal advice.</em></p>
+<p><em>This article was written with AI assistance and checked against the official sources listed above.</em></p>
+<p class="repo-link">WolfBoy on GitHub: <a href="https://github.com/innit-llc/wolfboy">github.com/innit-llc/wolfboy</a></p>
+</article>
+</main>
+<footer class="site"><div class="wrap">WolfBoy, by INNIT Inc.</div></footer>
+</body>
+</html>

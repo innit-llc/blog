@@ -39,6 +39,7 @@ export const SITE = {
 // share image, each named by the words the item starts with; the image shows
 // the first sentence of each, read from the article at build time.
 export const POSTS = [
+  { slug: 'loomio-gravatar-301', date: '2026-11-17', canonical: '', factsHead: 'The advisory', card: ['Affected versions', 'Fixed in', 'Severity as published'] },
   { slug: 'consent-withdrawal-link-poland', date: '2026-11-17', canonical: '', card: ['Fine', 'Final'] },
   { slug: 'retention-deadlines-denmark', date: '2026-11-17', canonical: '', card: ['Country', 'Court and date', 'Amount'] },
   { slug: 'health-event-names-to-analytics-sdks-us', date: '2026-11-17', canonical: '', card: ['Who', 'Amount', 'Status'] },
