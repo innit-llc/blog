@@ -297,7 +297,8 @@ function indexHtml(entries) {
     content: `<h1>${escapeHtml(SITE.description)}</h1>
 <ul class="posts">
 ${items}
-</ul>`,
+</ul>
+<p class="repo-link">${escapeHtml(SITE.repoLine)} <a href="${escapeAttr(SITE.repo)}">${escapeHtml(SITE.repoLabel)}</a></p>`,
   });
 }
 

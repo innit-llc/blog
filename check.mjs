@@ -177,6 +177,9 @@ export function runChecks({ articlesDir, siteDir, devtoDir }) {
   }
 
   const index = fs.readFileSync(path.join(siteDir, 'index.html'), 'utf8');
+  // Index: the closing repository line, once, so a reader who lands on the index reaches the tool.
+  const indexRepo = htmlHrefs(index).filter((l) => l.href === SITE.repo);
+  if (indexRepo.length !== 1) fail.push(`index: expected one repository link, found ${indexRepo.length}`);
   for (const post of POSTS) {
     const slug = post.slug;
     const source = fs.readFileSync(path.join(articlesDir, `${slug}.md`), 'utf8');
