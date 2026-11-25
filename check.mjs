@@ -133,7 +133,7 @@ export function runChecks({ articlesDir, siteDir, devtoDir }) {
       if (!re.test(html)) fail.push(`${rel(f)}: missing ${re.source.slice(0, 30)}`);
     }
     const footer = /<footer class="site"><div class="wrap">([^<]*)<\/div><\/footer>/.exec(html);
-    if (!footer || footer[1] !== 'WolfBoy, by INNIT Inc.') fail.push(`${rel(f)}: footer is not "WolfBoy, by INNIT Inc."`);
+    if (!footer || footer[1] !== 'WolfBoy, by INNIT LLC') fail.push(`${rel(f)}: footer is not "WolfBoy, by INNIT LLC"`);
     const og = /<meta property="og:url" content="([^"]+)"/.exec(html);
     if (!og || !og[1].startsWith(BLOG_URL)) fail.push(`${rel(f)}: og:url not under ${BLOG_URL}`);
     else {

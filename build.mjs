@@ -24,7 +24,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const SITE = {
   name: 'WolfBoy blog',
   description: 'Real privacy fines and settlements, each followed from the official documents to the code behind it and the fix.',
-  publisher: 'WolfBoy, by INNIT Inc.',
+  publisher: 'WolfBoy, by INNIT LLC',
   repoLine: 'WolfBoy on GitHub:',
   url: 'https://innit-llc.github.io/blog/',
   repo: 'https://github.com/innit-llc/wolfboy',
