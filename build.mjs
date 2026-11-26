@@ -26,7 +26,7 @@ export const SITE = {
   description: 'Real privacy fines and settlements, each followed from the official documents to the code behind it and the fix.',
   publisher: 'WolfBoy, by INNIT LLC',
   repoLine: 'WolfBoy on GitHub:',
-  url: 'https://innit-llc.github.io/blog/',
+  url: 'https://innit-llc.com/',
   repo: 'https://github.com/innit-llc/wolfboy',
   repoLabel: 'github.com/innit-llc/wolfboy',
 };
@@ -64,6 +64,11 @@ export const factsHeading = (post) => post.factsHead || DECISION_HEADING;
 export const shareFile = (slug) => `og/${slug || 'index'}.png`;
 // dev.to cover image of an article (its `main_image`): the title alone, at dev.to's crop size.
 export const coverFile = (slug) => `cover/${slug}.png`;
+// GitHub Pages custom domain: docs/CNAME holds the host of SITE.url and
+// nothing else (no newline), as the file GitHub itself writes. The build
+// writes it, because the build empties docs/ first.
+export const CNAME_FILE = 'CNAME';
+export const cnameText = () => new URL(SITE.url).host;
 
 export const PRODUCT_START = '<!-- product-block:start -->';
 export const PRODUCT_END = '<!-- product-block:end -->';
@@ -71,7 +76,7 @@ export const AI_MARKER = '<!-- ai-disclosure: owner to word -->';
 export const AI_LINE =
   '*This article was written with AI assistance and checked against the official sources listed above.*';
 export const DEVTO_BLOG_LINE =
-  'More cases like this, from the decision down to the code: [our blog](https://innit-llc.github.io/blog/).';
+  `More cases like this, from the decision down to the code: [our blog](${SITE.url}).`;
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
@@ -326,6 +331,7 @@ export function build(articlesDir) {
   fs.mkdirSync(path.join(siteDir, 'fonts'), { recursive: true });
   for (const f of FONT_FILES) fs.copyFileSync(path.join(assets, 'fonts', f), path.join(siteDir, 'fonts', f));
   fs.writeFileSync(path.join(siteDir, '.nojekyll'), '');
+  fs.writeFileSync(path.join(siteDir, CNAME_FILE), cnameText());
 
   // Share images: each article from its title and decision facts; the index
   // from the site description and the newest three titles.

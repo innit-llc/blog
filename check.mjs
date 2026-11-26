@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { SITE, POSTS, PRODUCT_START, PRODUCT_END, AI_LINE, DEVTO_BLOG_LINE, FONT_FILES, DECISION_HEADING, factsHeading, shareFile, coverFile } from './build.mjs';
+import { SITE, POSTS, PRODUCT_START, PRODUCT_END, AI_LINE, DEVTO_BLOG_LINE, FONT_FILES, DECISION_HEADING, factsHeading, shareFile, coverFile, CNAME_FILE, cnameText } from './build.mjs';
 
 const SHARE_SIZE = [1200, 630];
 
@@ -17,8 +17,6 @@ function pngSize(file) {
   if (b.length < 24 || b.toString('latin1', 0, 8) !== '\x89PNG\r\n\x1a\n' || b.toString('latin1', 12, 16) !== 'IHDR') return null;
   return [b.readUInt32BE(16), b.readUInt32BE(20)];
 }
-
-const BLOG_URL = 'https://innit-llc.github.io/blog/';
 
 function unescapeHtml(s) {
   return s.replace(/&(lt|gt|quot|#39|amp);/g, (_, e) =>
@@ -117,12 +115,20 @@ function sameList(a, b) {
 
 export function runChecks({ articlesDir, siteDir, devtoDir }) {
   const fail = [];
+  // Read here, not at module level: build.mjs imports this module before SITE exists.
+  const BLOG_URL = SITE.url;
   const files = walk(siteDir);
   const htmlFiles = files.filter((f) => f.endsWith('.html'));
   const rel = (f) => path.relative(siteDir, f);
 
   if (!fs.existsSync(path.join(siteDir, '.nojekyll'))) fail.push('.nojekyll missing');
   if (!fs.existsSync(path.join(siteDir, 'index.html'))) fail.push('index.html missing');
+  // Custom domain: GitHub Pages serves the site at the root of the CNAME host,
+  // so SITE.url must be that root, and CNAME must hold exactly the host.
+  const cname = path.join(siteDir, CNAME_FILE);
+  if (!fs.existsSync(cname)) fail.push(`${CNAME_FILE} missing`);
+  else if (fs.readFileSync(cname, 'utf8') !== cnameText()) fail.push(`${CNAME_FILE} is not exactly "${cnameText()}"`);
+  if (new URL(SITE.url).pathname !== '/' || !SITE.url.startsWith('https://')) fail.push(`SITE.url ${SITE.url} is not the https root of a custom domain`);
 
   // Pages: well-formed, head metadata present, footer, internal links resolve.
   for (const f of htmlFiles) {
@@ -257,7 +263,7 @@ export function runChecks({ articlesDir, siteDir, devtoDir }) {
   }
 
   // The site holds only what the build writes.
-  const expected = new Set(['.nojekyll', 'index.html', 'style.css', shareFile(''), ...FONT_FILES.map((f) => `fonts/${f}`),
+  const expected = new Set(['.nojekyll', CNAME_FILE, 'index.html', 'style.css', shareFile(''), ...FONT_FILES.map((f) => `fonts/${f}`),
     ...POSTS.flatMap((p) => [`${p.slug}/index.html`, shareFile(p.slug), coverFile(p.slug)])]);
   for (const f of files) if (!expected.has(rel(f))) fail.push(`unexpected file ${rel(f)}`);
   // dev.to covers: one per post, a 1000x420 PNG (dev.to's crop size).
