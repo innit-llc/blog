@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>WolfBoy blog</title>
+<link>https://innit-llc.com/</link>
+<description>Real privacy fines and settlements, each followed from the official documents to the code behind it and the fix.</description>
+<language>en</language>
+<atom:link href="https://innit-llc.com/feed.xml" rel="self" type="application/rss+xml" />
+<item>
+<title>A 301 instead of a 302 made Loomio mark new sign-ups as Gravatar users</title>
+<link>https://innit-llc.com/loomio-gravatar-301/</link>
+<guid isPermaLink="true">https://innit-llc.com/loomio-gravatar-301/</guid>
+<pubDate>Tue, 17 Nov 2026 00:00:00 GMT</pubDate>
+<description>Loomio asked Gravatar about every new sign-up over plain HTTP and read anything but a 302 as yes. Gravatar now answers 301. How I found it, and the 3.12.0 fix.</description>
+</item>
+<item>
+<title>Why ClickQuickNow was fined PLN 201,559.50: its 'withdraw consent' link withdrew nothing</title>
+<link>https://innit-llc.com/consent-withdrawal-link-poland/</link>
+<guid isPermaLink="true">https://innit-llc.com/consent-withdrawal-link-poland/</guid>
+<pubDate>Tue, 17 Nov 2026 00:00:00 GMT</pubDate>
+<description>The unsubscribe page of ClickQuickNow, a Polish e-mail marketer, announced a withdrawal that never happened, and empty withdrawal e-mails were ignored.</description>
+</item>
+<item>
+<title>Why Arp-Hansen was fined DKK 1,000,000: customer data kept past its own deletion deadlines</title>
+<link>https://innit-llc.com/retention-deadlines-denmark/</link>
+<guid isPermaLink="true">https://innit-llc.com/retention-deadlines-denmark/</guid>
+<pubDate>Tue, 17 Nov 2026 00:00:00 GMT</pubDate>
+<description>A Danish court fined hotel chain Arp-Hansen DKK 1,000,000; the authority found data kept past the chain's deletion deadlines. What that looks like in Django.</description>
+</item>
+<item>
+<title>Why Premom was fined $100,000: analytics events that disclosed health data, as alleged</title>
+<link>https://innit-llc.com/health-event-names-to-analytics-sdks-us/</link>
+<guid isPermaLink="true">https://innit-llc.com/health-event-names-to-analytics-sdks-us/</guid>
+<pubDate>Tue, 17 Nov 2026 00:00:00 GMT</pubDate>
+<description>Premom's maker agreed to a $100,000 civil penalty after the FTC alleged that event names the fertility app sent to Google and AppsFlyer revealed users' health.</description>
+</item>
+</channel>
+</rss>

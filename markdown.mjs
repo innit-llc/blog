@@ -12,6 +12,15 @@ export function escapeAttr(s) {
   return escapeHtml(s).replace(/"/g, '&quot;');
 }
 
+// A hyphenated word (sign-ups, Arp-Hansen) is wrapped in a no-wrap span, so a
+// heading or title never breaks after its hyphen. The hyphen stays U+002D, so
+// copy and search see the word as written. Takes HTML; only text between tags
+// is touched. The class "nw" is `white-space: nowrap` in every stylesheet.
+export function noBreakHyphens(html) {
+  return html.split(/(<[^>]*>)/).map((part) => (part.startsWith('<') ? part
+    : part.replace(/[\p{L}\p{N}]+(?:-[\p{L}\p{N}]+)+/gu, '<span class="nw">$&</span>'))).join('');
+}
+
 export function slugify(text) {
   return text
     .toLowerCase()

@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderMarkdown, renderInline, splitFrontMatter, escapeHtml, escapeAttr } from './markdown.mjs';
+import { renderMarkdown, renderInline, splitFrontMatter, escapeHtml, escapeAttr, noBreakHyphens } from './markdown.mjs';
 import { shareHtml, renderShareImages, SHARE_W, SHARE_H, COVER_W, COVER_H } from './share.mjs';
 import { runChecks } from './check.mjs';
 
@@ -19,8 +19,9 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 // Owner-editable wording: site name (its first word is set bold as the
 // wordmark), the one-sentence site description (the index heading, meta and
-// Open Graph description, and the index share image), footer, and the closing
-// line of every article page.
+// Open Graph description, the index share image and the feed), footer, the
+// closing line of every article page, the author named beside each article's
+// date, and the masthead's links (WolfBoy, About, GitHub).
 export const SITE = {
   name: 'WolfBoy blog',
   description: 'Real privacy fines and settlements, each followed from the official documents to the code behind it and the fix.',
@@ -29,7 +30,36 @@ export const SITE = {
   url: 'https://innit-llc.com/',
   repo: 'https://github.com/innit-llc/wolfboy',
   repoLabel: 'github.com/innit-llc/wolfboy',
+  github: 'https://github.com/innit-llc',
+  author: 'Taku Kanaya',
+  contact: 'security@innit-llc.com',
 };
+
+// The About page (in the masthead, not in the article list or the feed).
+// Owner-editable wording, in the articles' Markdown.
+export const ABOUT_PATH = 'about/';
+export const ABOUT = {
+  title: 'About the WolfBoy blog',
+  md: `# About
+
+This blog is written by ${SITE.author} at INNIT LLC in Osaka, Japan.
+
+## WolfBoy
+
+[WolfBoy](${SITE.repo}) reads your code against the law (GDPR, the EU AI Act, CCPA) and against your own privacy policy, and shows you where they disagree. Its rules mark the places in your code that concern the law, on your computer and with no AI, and AI agents in your own Claude Code then read each place and judge whether it is a problem.
+
+## How we report what we find
+
+What we find in a project is reported privately to the project first, and made public only after the project has had time to fix it.
+
+## Contact
+
+[${SITE.contact}](mailto:${SITE.contact})
+`,
+};
+
+// RSS 2.0 feed of the articles, announced from every page's head.
+export const FEED_FILE = 'feed.xml';
 
 // The articles, with the date each is shown under. Newest first on the index;
 // equal dates keep this order. `canonical` is the dev.to URL of the post; when
@@ -207,7 +237,25 @@ function cardFacts(decisionMd, post) {
   });
 }
 
-function page({ title, description, ogType, ogUrl, ogImage, canonical, root, content, bodyClass }) {
+// The masthead's links, right of the wordmark: plain text, in this order.
+function nav(root, current) {
+  const links = [
+    { label: 'WolfBoy', href: SITE.repo },
+    { label: 'About', href: `${root}${ABOUT_PATH}`, here: current === 'about' },
+    { label: 'GitHub', href: SITE.github },
+  ];
+  return `<nav class="nav" aria-label="Site">${links.map((l) =>
+    `<a href="${escapeAttr(l.href)}"${l.here ? ' aria-current="page"' : ''}>${escapeHtml(l.label)}</a>`).join('')}</nav>`;
+}
+
+// Every heading's hyphenated words are kept whole (see noBreakHyphens).
+function headingsNoBreak(html) {
+  return html.replace(/(<h([1-6])\b[^>]*>)([\s\S]*?)(<\/h\2>)/g, (_, open, _l, inner, close) => open + noBreakHyphens(inner) + close);
+}
+
+// mainClass: "wrap" is the 42rem reading column (articles, About); "frame" is
+// the 1100 px frame the masthead and footer sit in (the index).
+function page({ title, description, ogType, ogUrl, ogImage, canonical, root, content, bodyClass, mainClass = 'wrap', current = '' }) {
   const canonicalLink = canonical ? `<link rel="canonical" href="${escapeAttr(canonical)}" />\n` : '';
   const wm = wordmark();
   return `<!DOCTYPE html>
@@ -228,15 +276,16 @@ function page({ title, description, ogType, ogUrl, ogImage, canonical, root, con
 <meta property="og:image:alt" content="${escapeAttr(title)}" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="color-scheme" content="light dark" />
-${canonicalLink}<link rel="preload" href="${root}fonts/${FONT_FILES[0]}" as="font" type="font/woff2" crossorigin="anonymous" />
+${canonicalLink}<link rel="alternate" type="application/rss+xml" title="${escapeAttr(SITE.name)}" href="${escapeAttr(SITE.url + FEED_FILE)}" />
+<link rel="preload" href="${root}fonts/${FONT_FILES[0]}" as="font" type="font/woff2" crossorigin="anonymous" />
 <link rel="stylesheet" href="${root}style.css" />
 </head>
 <body class="${bodyClass}">
-<header class="mast"><div class="wrap"><a class="brand" href="${root || './'}"><b>${escapeHtml(wm.strong)}</b>${wm.rest ? ` ${escapeHtml(wm.rest)}` : ''}</a></div></header>
-<main class="wrap">
-${content}
+<header class="mast"><div class="frame"><a class="brand" href="${root || './'}"><b>${escapeHtml(wm.strong)}</b>${wm.rest ? ` ${escapeHtml(wm.rest)}` : ''}</a>${nav(root, current)}</div></header>
+<main class="${mainClass}">
+${headingsNoBreak(content)}
 </main>
-<footer class="site"><div class="wrap">${escapeHtml(SITE.publisher)}</div></footer>
+<footer class="site"><div class="frame">${escapeHtml(SITE.publisher)}</div></footer>
 </body>
 </html>
 `;
@@ -254,7 +303,7 @@ export function articleHtml(source, post) {
   const content = `<article>
 <header>
 <h1>${escapeHtml(data.title)}</h1>
-<p class="meta"><time datetime="${post.date}">${longDate(post.date)}</time></p>
+<p class="meta"><time datetime="${post.date}">${longDate(post.date)}</time> · by <a href="../${ABOUT_PATH}" rel="author">${escapeHtml(SITE.author)}</a></p>
 </header>
 ${parts[0].html}
 <section class="case">
@@ -299,12 +348,61 @@ function indexHtml(entries) {
     ogImage: `${SITE.url}${shareFile('')}`,
     root: '',
     bodyClass: 'home',
+    mainClass: 'frame',
     content: `<h1>${escapeHtml(SITE.description)}</h1>
 <ul class="posts">
 ${items}
 </ul>
 <p class="repo-link">${escapeHtml(SITE.repoLine)} <a href="${escapeAttr(SITE.repo)}">${escapeHtml(SITE.repoLabel)}</a></p>`,
   });
+}
+
+function aboutHtml() {
+  const description = `Who writes the ${SITE.name}, what WolfBoy does, how we report what we find, and how to reach us.`;
+  return page({
+    title: ABOUT.title,
+    description,
+    ogType: 'website',
+    ogUrl: `${SITE.url}${ABOUT_PATH}`,
+    ogImage: `${SITE.url}${shareFile('about')}`,
+    root: '../',
+    bodyClass: 'about',
+    current: 'about',
+    content: `<article>\n${renderMarkdown(ABOUT.md).html}\n</article>`,
+  });
+}
+
+// RFC 822 date (as RSS 2.0 asks) of an ISO day, at midnight UTC.
+function rfc822(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toUTCString();
+}
+
+// RSS 2.0: the channel from SITE, one item per article, newest first.
+function feedXml(entries) {
+  const x = escapeHtml;
+  const items = entries.map((e) => {
+    const link = `${SITE.url}${e.slug}/`;
+    return `<item>
+<title>${x(e.title)}</title>
+<link>${x(link)}</link>
+<guid isPermaLink="true">${x(link)}</guid>
+<pubDate>${rfc822(e.date)}</pubDate>
+<description>${x(e.description)}</description>
+</item>`;
+  }).join('\n');
+  return `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>${x(SITE.name)}</title>
+<link>${x(SITE.url)}</link>
+<description>${x(SITE.description)}</description>
+<language>en</language>
+<atom:link href="${escapeAttr(SITE.url + FEED_FILE)}" rel="self" type="application/rss+xml" />
+${items}
+</channel>
+</rss>
+`;
 }
 
 export function build(articlesDir) {
@@ -327,6 +425,9 @@ export function build(articlesDir) {
   const order = (e) => POSTS.findIndex((p) => p.slug === e.slug);
   entries.sort((x, y) => (x.date === y.date ? order(x) - order(y) : x.date < y.date ? 1 : -1));
   fs.writeFileSync(path.join(siteDir, 'index.html'), indexHtml(entries));
+  fs.mkdirSync(path.join(siteDir, ABOUT_PATH), { recursive: true });
+  fs.writeFileSync(path.join(siteDir, ABOUT_PATH, 'index.html'), aboutHtml());
+  fs.writeFileSync(path.join(siteDir, FEED_FILE), feedXml(entries));
   fs.copyFileSync(path.join(assets, 'style.css'), path.join(siteDir, 'style.css'));
   fs.mkdirSync(path.join(siteDir, 'fonts'), { recursive: true });
   for (const f of FONT_FILES) fs.copyFileSync(path.join(assets, 'fonts', f), path.join(siteDir, 'fonts', f));
@@ -334,7 +435,7 @@ export function build(articlesDir) {
   fs.writeFileSync(path.join(siteDir, CNAME_FILE), cnameText());
 
   // Share images: each article from its title and decision facts; the index
-  // from the site description and the newest three titles.
+  // from the site description and the newest three titles; About from its title.
   const fontFile = path.join(assets, 'fonts', FONT_FILES[0]);
   const common = { fontFile, brand: wordmark(), host: SITE.url.replace(/^https?:\/\//, '').replace(/\/$/, '') };
   renderShareImages([
@@ -349,7 +450,11 @@ export function build(articlesDir) {
     {
       out: path.join(siteDir, shareFile('')),
       html: shareHtml({ ...common, title: SITE.description, titleSize: 54, rowSize: 21, sheetHead: '',
-        rows: entries.slice(0, 3).map((e) => escapeHtml(e.title)) }),
+        rows: entries.slice(0, 3).map((e) => noBreakHyphens(escapeHtml(e.title))) }),
+    },
+    {
+      out: path.join(siteDir, shareFile('about')),
+      html: shareHtml({ ...common, title: ABOUT.title, titleSize: 64, sheetHead: '', rows: [] }),
     },
   ]);
   return { siteDir, devtoDir };

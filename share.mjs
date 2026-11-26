@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { escapeHtml } from './markdown.mjs';
+import { escapeHtml, noBreakHyphens } from './markdown.mjs';
 
 export const SHARE_W = 1200;
 export const SHARE_H = 630;
@@ -39,7 +39,8 @@ export function findChrome() {
 // brand: { strong, rest } wordmark parts; host: the site's address as text;
 // title: plain text; sheetHead: plain text or ''; rows: HTML strings.
 // A currency code keeps its amount on the same line (a no-break space, in the
-// image only).
+// image only); a hyphenated word in the title never breaks at its hyphen (the
+// no-wrap span of markdown.mjs). Rows that are titles come wrapped by the caller.
 export function shareHtml({ fontFile, brand, host, title, titleSize, rowSize = 23, sheetHead, rows, w = SHARE_W, h = SHARE_H }) {
   const font = fs.readFileSync(fontFile).toString('base64');
   const head = sheetHead ? `<div class="sh">${escapeHtml(sheetHead)}</div>` : '';
@@ -66,10 +67,11 @@ h1 { margin: 0; max-width: 1010px; font-weight: 700; font-size: ${titleSize}px; 
 .row { font-size: ${rowSize}px; line-height: 1.3; padding: 13px 0 14px; border-bottom: 1px solid rgba(23, 21, 17, .16); }
 .row:last-child { border-bottom: 0; }
 .row b { font-weight: 600; }
+.nw { white-space: nowrap; }
 </style></head>
 <body class="${rows.length ? '' : 'cover'}"><div class="frame">
 <div class="brand"><span class="wm"><b>${escapeHtml(brand.strong)}</b>${brand.rest ? ` ${escapeHtml(brand.rest)}` : ''}</span><span class="host">${escapeHtml(host)}</span></div>
-<div class="title"><h1>${escapeHtml(title).replace(/\b([A-Z]{3}) (?=\d)/g, '$1\u00a0')}</h1></div>
+<div class="title"><h1>${noBreakHyphens(escapeHtml(title).replace(/\b([A-Z]{3}) (?=\d)/g, '$1\u00a0'))}</h1></div>
 ${rows.length ? `<div class="sheet">${head}${rows.map((r) => `<div class="row">${r}</div>`).join('')}</div>` : ''}
 </div>
 <script>
